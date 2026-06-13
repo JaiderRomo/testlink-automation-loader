@@ -1,0 +1,45 @@
+# Python
+
+**pycache**/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+
+venv/
+
+# Environment variables
+
+.env
+
+# Claude
+
+.claude/
+
+# Excel
+
+*.xlsx
+~$*.xlsx
+
+# Logs
+
+logs/
+
+# Build
+
+dist/
+build/
+
+# PyInstaller
+
+*.spec
+
+# VSCode
+
+.vscode/
+
+# OS
+
+.DS_Store
+Thumbs.db
