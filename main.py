@@ -13,6 +13,7 @@ from testlink_api import (
     DEFAULT_PARENT_TESTSUITE_NAME,
     build_steps,
     clean_xmlrpc_text,
+    configure_connection,
     create_test_case,
     create_test_suite,
     extract_id_from_response,
@@ -26,13 +27,6 @@ from testlink_api import (
 
 
 SEPARATOR = "=" * 50
-
-# Estructuras de tracking estructurado, preparadas para una futura UI con
-# 3 cuadros: creados, omitidos/duplicados y errores. Se llenan en paralelo
-# a los prints existentes, sin reemplazarlos.
-created_items = []
-skipped_items = []
-error_items = []
 
 
 def process_hu(hu_item, parent_suite_id, stats, created_items, skipped_items, error_items):
@@ -188,115 +182,145 @@ def process_hu(hu_item, parent_suite_id, stats, created_items, skipped_items, er
             set_test_case_input_data(test_case_response, test_case["input_data"])
 
 
-print("INICIANDO CARGA MASIVA EXCEL -> TESTLINK...\n")
+def run_automation_process(excel_path=None, testlink_url=None, devkey=None):
+    if testlink_url or devkey:
+        configure_connection(testlink_url=testlink_url, devkey=devkey)
 
-test_connection()
+    excel_path = excel_path or DEFAULT_EXCEL_FILE
 
-print("\n[INFO] Archivo Excel detectado:")
-print(os.path.basename(DEFAULT_EXCEL_FILE))
+    created_items = []
+    skipped_items = []
+    error_items = []
 
-sheets = read_excel_all_sheets()
+    print("INICIANDO CARGA MASIVA EXCEL -> TESTLINK...\n")
 
-if not sheets:
-    print("\n[ERROR] No se pudo leer el archivo Excel. Se detiene la ejecucion.")
-else:
+    test_connection()
+
+    print("\n[INFO] Archivo Excel detectado:")
+    print(os.path.basename(excel_path))
+
+    sheets = read_excel_all_sheets(excel_path)
+
+    if not sheets:
+        print("\n[ERROR] No se pudo leer el archivo Excel. Se detiene la ejecucion.")
+        return {
+            "created_items": created_items,
+            "skipped_items": skipped_items,
+            "error_items": error_items,
+        }
+
     parent_suite = get_testsuite_by_name(DEFAULT_PARENT_TESTSUITE_NAME)
 
     if not parent_suite:
         print("\n[ERROR] No se encontro la suite padre. Se detiene la ejecucion.")
-    else:
-        parent_suite_id = extract_suite_id(parent_suite)
-
-        print("\nSUITE PADRE QUE SE USARA:")
-        print(f"Nombre: {DEFAULT_PARENT_TESTSUITE_NAME}")
-        print(f"ID real: {parent_suite_id}")
-
-        stats = {
-            "hus_procesadas": 0,
-            "hus_creadas": 0,
-            "hus_reutilizadas": 0,
-            "cps_procesados": 0,
-            "cps_creados": 0,
-            "cps_omitidos": 0,
-            "steps_creados": 0,
+        return {
+            "created_items": created_items,
+            "skipped_items": skipped_items,
+            "error_items": error_items,
         }
 
-        for sheet_name, sheet_df in sheets.items():
-            print(f"\n{SEPARATOR}")
-            print("[INFO] Procesando hoja:")
-            print(sheet_name)
-            print(SEPARATOR)
+    parent_suite_id = extract_suite_id(parent_suite)
 
-            try:
-                if sheet_df is None:
-                    print("[ERROR] Hoja invalida:")
-                    print(sheet_name)
-                    error_items.append({
-                        "type": "SHEET",
-                        "status": "ERROR",
-                        "sheet_name": sheet_name,
-                        "error": "No se pudo leer la hoja",
-                    })
-                    continue
+    print("\nSUITE PADRE QUE SE USARA:")
+    print(f"Nombre: {DEFAULT_PARENT_TESTSUITE_NAME}")
+    print(f"ID real: {parent_suite_id}")
 
-                testlink_structure = build_testlink_structure(sheet_df)
-                print_testlink_structure(testlink_structure)
+    stats = {
+        "hus_procesadas": 0,
+        "hus_creadas": 0,
+        "hus_reutilizadas": 0,
+        "cps_procesados": 0,
+        "cps_creados": 0,
+        "cps_omitidos": 0,
+        "steps_creados": 0,
+    }
 
-                if not testlink_structure:
-                    print("[ERROR] Hoja invalida:")
-                    print(sheet_name)
-                    error_items.append({
-                        "type": "SHEET",
-                        "status": "ERROR",
-                        "sheet_name": sheet_name,
-                        "error": "La hoja no tiene una estructura QA_REAL valida o no contiene datos",
-                    })
-                    continue
+    for sheet_name, sheet_df in sheets.items():
+        print(f"\n{SEPARATOR}")
+        print("[INFO] Procesando hoja:")
+        print(sheet_name)
+        print(SEPARATOR)
 
-                for hu_item in testlink_structure:
-                    process_hu(hu_item, parent_suite_id, stats, created_items, skipped_items, error_items)
-
-            except Exception as e:
-
-                print("[ERROR] Fallo procesando hoja:")
+        try:
+            if sheet_df is None:
+                print("[ERROR] Hoja invalida:")
                 print(sheet_name)
-                print(e)
                 error_items.append({
                     "type": "SHEET",
                     "status": "ERROR",
                     "sheet_name": sheet_name,
-                    "error": str(e),
+                    "error": "No se pudo leer la hoja",
                 })
                 continue
 
-        print(f"\n{SEPARATOR}")
-        print("RESUMEN FINAL")
-        print(SEPARATOR)
+            testlink_structure = build_testlink_structure(sheet_df)
+            print_testlink_structure(testlink_structure)
 
-        print(f"\nHUs procesadas: {stats['hus_procesadas']}")
-        print(f"HUs creadas: {stats['hus_creadas']}")
-        print(f"HUs reutilizadas: {stats['hus_reutilizadas']}")
+            if not testlink_structure:
+                print("[ERROR] Hoja invalida:")
+                print(sheet_name)
+                error_items.append({
+                    "type": "SHEET",
+                    "status": "ERROR",
+                    "sheet_name": sheet_name,
+                    "error": "La hoja no tiene una estructura QA_REAL valida o no contiene datos",
+                })
+                continue
 
-        print(f"\nCPs procesados: {stats['cps_procesados']}")
-        print(f"CPs creados: {stats['cps_creados']}")
-        print(f"CPs omitidos: {stats['cps_omitidos']}")
+            for hu_item in testlink_structure:
+                process_hu(hu_item, parent_suite_id, stats, created_items, skipped_items, error_items)
 
-        print(f"\nSteps creados: {stats['steps_creados']}")
+        except Exception as e:
 
-        print("\nCREADOS:")
-        print(len(created_items))
+            print("[ERROR] Fallo procesando hoja:")
+            print(sheet_name)
+            print(e)
+            error_items.append({
+                "type": "SHEET",
+                "status": "ERROR",
+                "sheet_name": sheet_name,
+                "error": str(e),
+            })
+            continue
 
-        print("\nOMITIDOS:")
-        print(len(skipped_items))
+    print(f"\n{SEPARATOR}")
+    print("RESUMEN FINAL")
+    print(SEPARATOR)
 
-        print("\nERRORES:")
-        print(len(error_items))
+    print(f"\nHUs procesadas: {stats['hus_procesadas']}")
+    print(f"HUs creadas: {stats['hus_creadas']}")
+    print(f"HUs reutilizadas: {stats['hus_reutilizadas']}")
 
-        print("\nCREATED_ITEMS:")
-        pprint.pprint(created_items, width=120)
+    print(f"\nCPs procesados: {stats['cps_procesados']}")
+    print(f"CPs creados: {stats['cps_creados']}")
+    print(f"CPs omitidos: {stats['cps_omitidos']}")
 
-        print("\nSKIPPED_ITEMS:")
-        pprint.pprint(skipped_items, width=120)
+    print(f"\nSteps creados: {stats['steps_creados']}")
 
-        print("\nERROR_ITEMS:")
-        pprint.pprint(error_items, width=120)
+    print("\nCREADOS:")
+    print(len(created_items))
+
+    print("\nOMITIDOS:")
+    print(len(skipped_items))
+
+    print("\nERRORES:")
+    print(len(error_items))
+
+    print("\nCREATED_ITEMS:")
+    pprint.pprint(created_items, width=120)
+
+    print("\nSKIPPED_ITEMS:")
+    pprint.pprint(skipped_items, width=120)
+
+    print("\nERROR_ITEMS:")
+    pprint.pprint(error_items, width=120)
+
+    return {
+        "created_items": created_items,
+        "skipped_items": skipped_items,
+        "error_items": error_items,
+    }
+
+
+if __name__ == "__main__":
+    run_automation_process()

@@ -70,6 +70,17 @@ def validate_config():
         raise ValueError("Falta TESTLINK_DEVKEY en el archivo .env")
 
 
+def configure_connection(testlink_url=None, devkey=None):
+    global URL, DEVKEY, server
+
+    if testlink_url:
+        URL = testlink_url
+        server = xmlrpc.client.ServerProxy(URL, encoding="utf-8", allow_none=True)
+
+    if devkey:
+        DEVKEY = devkey
+
+
 def print_response(title, response):
     print(title)
     pprint.pprint(response, width=120)
