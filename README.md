@@ -73,4 +73,4 @@ La URL del endpoint XML-RPC de TestLink está configurada internamente en la apl
 
 Versión funcional para uso interno.
 
-Actualmente se ejecuta mediante Python. La generación de una versión `.exe` queda como siguiente etapa.
+Actualmente se ejecuta mediante Python.
