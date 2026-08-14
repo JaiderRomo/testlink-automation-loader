@@ -16,7 +16,8 @@ Herramienta desktop en Python para automatizar el cargue masivo de casos de prue
 
 ## Requisitos
 
-* Python 3.12 o compatible.
+* Recomendado: Python 3.12.x (64-bit)
+Descargar desde: [Python para Windows](https://www.python.org/downloads/windows/?utm_source=chatgpt.com)
 * Acceso al proyecto correspondiente en TestLink.
 * DEVKEY propia de TestLink.
 
